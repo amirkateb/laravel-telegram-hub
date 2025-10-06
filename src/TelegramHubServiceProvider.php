@@ -2,7 +2,7 @@
 
 namespace Amirkateb\TelegramHub;
 
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Contracts.Config\Repository as ConfigRepository;
 use Illuminate\Support\ServiceProvider;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
@@ -12,10 +12,12 @@ use Amirkateb\TelegramHub\Console\Commands\TelegramHubDeleteWebhook;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubWebhookInfo;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubSendTest;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubSend;
+use Amirkateb\TelegramHub\Console\Commands\TelegramHubBotUpsert;
 use Amirkateb\TelegramHub\Apis\MessageApi;
 use Amirkateb\TelegramHub\Apis\MediaApi;
 use Amirkateb\TelegramHub\Apis\ChatAdminApi;
 use Amirkateb\TelegramHub\Support\Http;
+use Amirkateb\TelegramHub\Services\BotManager;
 
 class TelegramHubServiceProvider extends ServiceProvider
 {
@@ -26,6 +28,7 @@ class TelegramHubServiceProvider extends ServiceProvider
         $this->app->singleton(MessageApi::class, fn($app) => new MessageApi($app->make('telegram.hub')));
         $this->app->singleton(MediaApi::class, fn($app) => new MediaApi($app->make('telegram.hub')));
         $this->app->singleton(ChatAdminApi::class, fn($app) => new ChatAdminApi($app->make('telegram.hub')));
+        $this->app->singleton(BotManager::class, fn($app) => new BotManager($app->make('telegram.hub')));
     }
 
     public function boot()
@@ -40,6 +43,7 @@ class TelegramHubServiceProvider extends ServiceProvider
                 TelegramHubWebhookInfo::class,
                 TelegramHubSendTest::class,
                 TelegramHubSend::class,
+                TelegramHubBotUpsert::class,
             ]);
         }
     }
