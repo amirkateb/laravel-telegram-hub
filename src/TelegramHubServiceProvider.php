@@ -2,7 +2,7 @@
 
 namespace Amirkateb\TelegramHub;
 
-use Illuminate\Contracts.Config\Repository as ConfigRepository;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\ServiceProvider;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +13,8 @@ use Amirkateb\TelegramHub\Console\Commands\TelegramHubWebhookInfo;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubSendTest;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubSend;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubBotUpsert;
+use Amirkateb\TelegramHub\Console\Commands\TelegramHubBotDeleteWebhook;
+use Amirkateb\TelegramHub\Console\Commands\TelegramHubBotInfo;
 use Amirkateb\TelegramHub\Apis\MessageApi;
 use Amirkateb\TelegramHub\Apis\MediaApi;
 use Amirkateb\TelegramHub\Apis\ChatAdminApi;
@@ -44,6 +46,8 @@ class TelegramHubServiceProvider extends ServiceProvider
                 TelegramHubSendTest::class,
                 TelegramHubSend::class,
                 TelegramHubBotUpsert::class,
+                TelegramHubBotDeleteWebhook::class,
+                TelegramHubBotInfo::class,
             ]);
         }
     }
