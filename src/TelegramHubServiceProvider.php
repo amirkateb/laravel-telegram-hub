@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubSetWebhook;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubDeleteWebhook;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubWebhookInfo;
+use Amirkateb\TelegramHub\Apis\MessageApi;
+use Amirkateb\TelegramHub\Apis\MediaApi;
+use Amirkateb\TelegramHub\Apis\ChatAdminApi;
 
 class TelegramHubServiceProvider extends ServiceProvider
 {
@@ -20,6 +23,18 @@ class TelegramHubServiceProvider extends ServiceProvider
 
         $this->app->singleton('telegram.hub', function ($app) {
             return new TelegramHub($app['config']);
+        });
+
+        $this->app->singleton(MessageApi::class, function ($app) {
+            return new MessageApi($app->make('telegram.hub'));
+        });
+
+        $this->app->singleton(MediaApi::class, function ($app) {
+            return new MediaApi($app->make('telegram.hub'));
+        });
+
+        $this->app->singleton(ChatAdminApi::class, function ($app) {
+            return new ChatAdminApi($app->make('telegram.hub'));
         });
     }
 
