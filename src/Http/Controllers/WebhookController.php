@@ -4,7 +4,6 @@ namespace Amirkateb\TelegramHub\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 class WebhookController extends Controller
@@ -18,7 +17,6 @@ class WebhookController extends Controller
         }
 
         $payload = $request->all();
-
         try {
             DB::table('telegram_logs')->insert([
                 'direction' => 'inbound',
@@ -36,7 +34,26 @@ class WebhookController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
+
+        $token = config('telegram_hub.bots.' . $bot);
+
+        if (isset($payload['callback_query']['id'])) {
+            app('telegram.hub')->answerCallbackQuery([
+                'callback_query_id' => $payload['callback_query']['id'],
+                'text' => 'OK',
+                'show_alert' => false
+            ], $token);
+        }
+
+        if (isset($payload['message']['chat']['id']) && isset($payload['message']['text'])) {
+            $chatId = $payload['message']['chat']['id'];
+            app('telegram.hub')->sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'پیام دریافت شد'
+            ], $token);
+        }
 
         return response()->json(['ok' => true]);
     }
@@ -50,7 +67,6 @@ class WebhookController extends Controller
         }
 
         $payload = $request->all();
-
         try {
             DB::table('telegram_logs')->insert([
                 'direction' => 'inbound',
@@ -68,7 +84,27 @@ class WebhookController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
+
+        $defaultKey = (string) config('telegram_hub.default_bot', 'default');
+        $token = config('telegram_hub.bots.' . $defaultKey);
+
+        if (isset($payload['callback_query']['id'])) {
+            app('telegram.hub')->answerCallbackQuery([
+                'callback_query_id' => $payload['callback_query']['id'],
+                'text' => 'OK',
+                'show_alert' => false
+            ], $token);
+        }
+
+        if (isset($payload['message']['chat']['id']) && isset($payload['message']['text'])) {
+            $chatId = $payload['message']['chat']['id'];
+            app('telegram.hub')->sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'پیام دریافت شد'
+            ], $token);
+        }
 
         return response()->json(['ok' => true]);
     }
