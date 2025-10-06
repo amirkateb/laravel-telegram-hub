@@ -1,33 +1,52 @@
 # 📦 Laravel Telegram Hub
-ساخته‌شده توسط **@amirkateb**  
+سازنده: **@amirkateb**  
 نسخه: 1.0
 
 ---
 
-## 🧠 معرفی
+## فهرست مطالب
+- [معرفی](#-معرفی)
+- [پیش‌نیازها](#-پیشنیازها)
+- [نصب](#-نصب)
+- [پیکربندی](#-پیکربندی)
+- [ساختار فایل‌ها (مانیفست)](#-ساختار-فایلها-مانیفست)
+- [دیتابیس](#-دیتابیس)
+- [مسیرهای HTTP (Routes)](#-مسیرهای-http-routes)
+- [امنیت وبهوک](#-امنیت-وبهوک)
+- [مدیریت وبهوک (CLI / API / Service)](#-مدیریت-وبهوک-cli--api--service)
+- [دریافت پیام و اتصال منطق پروژه](#-دریافت-پیام-و-اتصال-منطق-پروژه)
+- [ارسال پیام‌ها (همه انواع رایج)](#-ارسال-پیامها-همه-انواع-رایج)
+- [سرویس‌های تفکیک‌شده (Apis)](#-سرویسهای-تفکیکشده-apis)
+- [لاگ‌ها](#-لاگها)
+- [عیب‌یابی و نکات عملیاتی](#-عیبیابی-و-نکات-عملیاتی)
+- [نقشه راه پیشنهادی (Optional)](#-نقشه-راه-پیشنهادی-optional)
+- [پشتیبانی، مجوز](#-پشتیبانی-مجوز)
 
-**Laravel Telegram Hub** یک پکیج جامع برای کار با **Telegram Bot API** در لاراول است که این قابلیت‌ها را فراهم می‌کند:
-- پشتیبانی از چند بات (multi-bot) با کانفیگ، دیتابیس یا توکن لحظه‌ای
-- وبهوک امن با Secret Token، مسیر قابل‌تنظیم و لاگ کامل رویدادها
-- ارسال همهٔ انواع پیام (متن، عکس، ویدیو، ویس، سند، آلبوم، لوکیشن، ونیو، کانتکت…)، ویرایش/حذف پیام و پاسخ به callback_query
-- آپلود مستقیم فایل از دیسک (multipart) با هلسپر `InputFile`
-- کلاس‌های تفکیک‌شده برای ارسال (Message/Media/Admin) و فَساد `TelegramHub`
-- Artisan Commands برای مدیریت وبهوک و ارسال تستی/دلخواه
-- API داخلی برای ست/حذف/استعلام وبهوک
-- تنظیم پراکسی، تایم‌اوت‌ها و لاگ‌گیری دیتابیسی
+---
+
+## 🧠 معرفی
+**Laravel Telegram Hub** یک پکیج جامع برای ادغام کامل با **Telegram Bot API** در Laravel است. تمرکز پکیج بر **Multi-Bot واقعی**، **وبهوک امن**، **آپلود مدیا از دیسک (multipart)**، **مدیریت از دیتابیس** و **لاگ‌گیری کامل** است.
+
+ویژگی‌ها:
+- ست/حذف/استعلام وبهوک با Secret Token
+- ارسال انواع پیام: متن، عکس، ویدیو، سند، ویس/آدیو، انیمیشن، ویدئونوت، گروه مدیا، لوکیشن، … + ویرایش/حذف
+- آپلود مستقیم فایل از دیسک با `Support\InputFile`
+- مدیریت بات‌ها از **config** یا **دیتابیس** (جدول `telegram_bots`)
+- لاگ کامل inbound/outbound در جدول `telegram_logs`
+- CLI Commands و API Endpoints برای مدیریت
+- تنظیم Proxy و Timeout‌ها
 
 ---
 
 ## ✅ پیش‌نیازها
-
-- PHP ^8.2  
-- Laravel ^10 | ^11  
-- اکستنشن‌های cURL و JSON فعال
+- PHP 8.2+
+- Laravel 10 یا 11
+- ext-curl, ext-json
+- HTTPS برای وبهوک
 
 ---
 
 ## 🚀 نصب
-
 ```bash
 composer require amirkateb/laravel-telegram-hub
 php artisan vendor:publish --provider="Amirkateb\TelegramHub\TelegramHubServiceProvider" --tag=config
@@ -43,7 +62,7 @@ php artisan migrate
 ```env
 TELEGRAM_DEFAULT_BOT=default
 TELEGRAM_BOT_TOKEN=123456:ABC
-TELEGRAM_WEBHOOK_SECRET=my-long-secret
+TELEGRAM_WEBHOOK_SECRET=your-long-secret
 TELEGRAM_HUB_ROUTE_PREFIX=telegram-hub
 TELEGRAM_HUB_ROUTE_MIDDLEWARE=api
 TELEGRAM_PROXY_ENABLED=false
@@ -52,39 +71,96 @@ TELEGRAM_PROXY_HTTPS=
 TELEGRAM_HTTP_TIMEOUT=15
 TELEGRAM_HTTP_CONNECT_TIMEOUT=10
 TELEGRAM_HUB_LOG_CHANNEL=stack
+TELEGRAM_WEBHOOK_BASE_URL=https://your-domain.com
 ```
 
-### config/telegram_hub.php (نمونه تعاریف چند بات)
+### config/telegram_hub.php (گزیده)
 ```php
-'bots' => [
-  'default' => env('TELEGRAM_BOT_TOKEN'),
-  'sales'   => env('TELEGRAM_BOT_TOKEN_SALES'),
-  'support' => env('TELEGRAM_BOT_TOKEN_SUPPORT'),
-],
+return [
+    'default_bot' => env('TELEGRAM_DEFAULT_BOT', 'default'),
+
+    'bots' => [
+        'default' => env('TELEGRAM_BOT_TOKEN'),
+        // 'sales' => env('TELEGRAM_BOT_TOKEN_SALES'),
+    ],
+
+    'proxy' => [
+        'enabled' => (bool) env('TELEGRAM_PROXY_ENABLED', false),
+        'http' => env('TELEGRAM_PROXY_HTTP'),
+        'https' => env('TELEGRAM_PROXY_HTTPS'),
+    ],
+
+    'request' => [
+        'timeout' => (int) env('TELEGRAM_HTTP_TIMEOUT', 15),
+        'connect_timeout' => (int) env('TELEGRAM_HTTP_CONNECT_TIMEOUT', 10),
+    ],
+
+    'webhook' => [
+        'base_url' => env('TELEGRAM_WEBHOOK_BASE_URL'),
+        'secret_token' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
+    'routes' => [
+        'prefix' => env('TELEGRAM_HUB_ROUTE_PREFIX', 'telegram-hub'),
+        'middleware' => array_filter(array_map('trim', explode(',', (string) env('TELEGRAM_HUB_ROUTE_MIDDLEWARE', 'api')))),
+    ],
+
+    'log_channel' => env('TELEGRAM_HUB_LOG_CHANNEL', 'stack'),
+];
 ```
 
-> نکته: بات‌ها را می‌توان در دیتابیس نیز مدیریت کرد (پایین توضیح داده شده).
+---
+
+## 🗂️ ساختار فایل‌ها (مانیفست)
+```
+amirkateb/laravel-telegram-hub
+├─ config/telegram_hub.php
+├─ routes/telegram_hub.php
+├─ src/
+│  ├─ TelegramHubServiceProvider.php
+│  ├─ Http/Controllers/
+│  │  ├─ WebhookController.php
+│  │  └─ WebhookSetupController.php
+│  ├─ Services/
+│  │  └─ BotManager.php
+│  ├─ Console/Commands/
+│  │  ├─ TelegramHubSetWebhook.php
+│  │  ├─ TelegramHubDeleteWebhook.php
+│  │  ├─ TelegramHubWebhookInfo.php
+│  │  ├─ TelegramHubSend.php
+│  │  ├─ TelegramHubSendTest.php
+│  │  ├─ TelegramHubBotUpsert.php
+│  │  ├─ TelegramHubBotDeleteWebhook.php
+│  │  └─ TelegramHubBotInfo.php
+│  ├─ Apis/
+│  │  ├─ MessageApi.php
+│  │  ├─ MediaApi.php
+│  │  └─ ChatAdminApi.php
+│  └─ Support/
+│     ├─ Http.php
+│     └─ InputFile.php
+└─ database/migrations/
+   ├─ xxxx_xx_xx_xxxxxx_create_telegram_bots_table.php
+   └─ xxxx_xx_xx_xxxxxx_create_telegram_logs_table.php
+```
 
 ---
 
 ## 🧩 دیتابیس
 
 ### جدول `telegram_bots`
-ساختار پیشنهادی (مایگریشن آماده‌ی پکیج):
+| ستون | توضیح |
+|------|------|
+| key | کلید یکتای بات (مثال: sales) |
+| name | نام نمایشی |
+| token | توکن BotFather |
+| webhook_url | آدرس وبهوک فعلی |
+| secret_token | توکن امنیتی وبهوک |
+| enabled | فعال/غیرفعال |
+| allowed_updates | JSON از نوع آپدیت‌های مجاز |
+| timestamps | زمان‌ها |
 
-| ستون | نوع | توضیح |
-|------|-----|------|
-| id | bigint | کلید |
-| key | string(unique) | کلید بات (مثال: sales) |
-| name | string | نام نمایشی |
-| token | string | توکن BotFather |
-| webhook_url | string | آدرس وبهوک فعلی |
-| secret_token | string | رمز امنیتی وبهوک |
-| enabled | boolean(index) | فعال/غیر فعال |
-| allowed_updates | json | انواع آپدیت‌های مجاز |
-| timestamps | — | زمان‌ها |
-
-نمونه درج رکورد:
+نمونه درج:
 ```php
 DB::table('telegram_bots')->insert([
   'key' => 'sales',
@@ -100,74 +176,77 @@ DB::table('telegram_bots')->insert([
 ```
 
 ### جدول `telegram_logs`
-برای لاگ inbound/outbound:
-
-| ستون | توضیح |
-|------|------|
-| direction | inbound یا outbound |
-| bot_key, bot_id | مشخصات بات |
-| chat_id, message_id | شناسه‌های تلگرام |
-| method | متد Bot API یا "webhook" |
-| status_code, ok, error_code, error_description | وضعیت |
-| payload, response | JSON ورودی/خروجی |
-| created_at, updated_at | زمان‌ها |
+برای ثبت inbound/outbound با فیلدهای: `direction, bot_key, bot_id, chat_id, message_id, method, status_code, ok, error_code, error_description, payload, response, timestamps`
 
 ---
 
-## 🔗 مسیرها (Routes)
+## 🔗 مسیرهای HTTP (Routes)
 
-پکیج به‌صورت خودکار این مسیرها را بارگذاری می‌کند (مگر اینکه فایل را حذف کنید):
+| متد | مسیر | توضیح |
+|-----|------|------|
+| POST | `/{prefix}/webhook/{bot}` | دریافت آپدیت‌های بات مشخص |
+| POST | `/{prefix}/webhook` | دریافت آپدیت‌های بات پیش‌فرض |
+| POST | `/{prefix}/set-webhook/{bot}` | ست وبهوک + امکان ذخیره از طریق BotManager در DB |
+| DELETE | `/{prefix}/delete-webhook/{bot}` | حذف وبهوک + به‌روزرسانی DB |
+| GET | `/{prefix}/webhook-info/{bot}` | دریافت وضعیت وبهوک |
 
-- `POST /{PREFIX}/webhook/{bot}` → دریافت آپدیت‌ها برای یک بات مشخص
-- `POST /{PREFIX}/webhook` → دریافت آپدیت‌ها برای بات پیش‌فرض
-- `POST /{PREFIX}/set-webhook/{bot}` → ست وبهوک
-- `DELETE /{PREFIX}/delete-webhook/{bot}` → حذف وبهوک
-- `GET /{PREFIX}/webhook-info/{bot}` → اطلاعات وبهوک
-
-مقادیر `PREFIX` و میدلورها در کانفیگ قابل‌تنظیم‌اند:
-```env
-TELEGRAM_HUB_ROUTE_PREFIX=telegram-hub
-TELEGRAM_HUB_ROUTE_MIDDLEWARE=api
-```
+> مقادیر `prefix` و `middleware` از کانفیگ خوانده می‌شود.  
+> امنیت: بررسی `X-Telegram-Bot-Api-Secret-Token` در `WebhookController` انجام می‌شود (از DB یا config).
 
 ---
 
 ## 🛡️ امنیت وبهوک
-
-- هنگام `setWebhook` مقدار `secret_token` را تنظیم کنید
-- در وبهوک هدر `X-Telegram-Bot-Api-Secret-Token` بررسی می‌شود
-- همیشه از HTTPS استفاده کنید
-- می‌توانید روی مسیرهای مدیریتی (set/delete/info) میدلور احراز هویت اضافه کنید
+- `TELEGRAM_WEBHOOK_SECRET` را تنظیم و هنگام `setWebhook` ارسال کنید.
+- وبهوک فقط از HTTPS خوانده شود.
+- برای روت‌های مدیریتی (set/delete/info) می‌توانید Middleware احراز هویت اضافه کنید.
+- امکان غیرفعال‌سازی بات از طریق فیلد `enabled` در DB وجود دارد.
 
 ---
 
-## 📡 مدیریت وبهوک
+## 📡 مدیریت وبهوک (CLI / API / Service)
 
-### Artisan
+### 1) CLI ساده (بدون Persist)
 ```bash
-php artisan telegram-hub:webhook:set --url="https://your-domain.com/telegram-hub/webhook/default" --bot=default --secret-token="$TELEGRAM_WEBHOOK_SECRET"
+php artisan telegram-hub:webhook:set --url="https://your-domain.com/telegram-hub/webhook/default" --bot=default --secret="$TELEGRAM_WEBHOOK_SECRET" --allowed-updates=message,callback_query
 php artisan telegram-hub:webhook:info --bot=default
 php artisan telegram-hub:webhook:delete --bot=default
 ```
 
-پارامترهای مفید:
-- `--bot=KEY` یا `--token=` یا `--id=` (شناسه در جدول `telegram_bots`)
-- `--allowed-updates=message,callback_query`
-- `--drop-pending-updates=true`
+### 2) BotManager (ست و ذخیره در DB)
+```php
+use Amirkateb\TelegramHub\Services\BotManager;
 
-### API داخلی پکیج
+$res = app(BotManager::class)->setWebhookAndPersist(
+  'sales',
+  '123456789:ABC_DEF',
+  'ربات فروش',
+  null,
+  'sales-secret',
+  ['message','callback_query'],
+  true
+);
+```
+
+### 3) CLI با Persist
+```bash
+php artisan telegram-hub:bot:upsert --key=sales --token=123456789:ABC_DEF --name="ربات فروش" --secret="sales-secret" --allowed-updates=message,callback_query --enabled=1
+php artisan telegram-hub:bot:info --key=sales
+php artisan telegram-hub:bot:delete-webhook --key=sales
+```
+
+### 4) API داخلی
 ```http
-POST   /{PREFIX}/set-webhook/{bot}
-DELETE /{PREFIX}/delete-webhook/{bot}
-GET    /{PREFIX}/webhook-info/{bot}
+POST   /{prefix}/set-webhook/{bot}      (body: { token?, name?, url?, secret?, allowed_updates?, enabled? })
+DELETE /{prefix}/delete-webhook/{bot}
+GET    /{prefix}/webhook-info/{bot}
 ```
 
 ---
 
-## 💬 مدیریت پیام‌های دریافتی (Business Logic)
+## 💬 دریافت پیام و اتصال منطق پروژه
 
-### روش توصیه‌شده: Middleware روی روت پکیج
-1) میدلور بسازید: `app/Http/Middleware/TelegramHubInbound.php`
+### روش توصیه‌شده: Middleware روی روت وبهوک پکیج
+1) بسازید: `app/Http/Middleware/TelegramHubInbound.php`
 ```php
 <?php
 
@@ -206,10 +285,9 @@ class TelegramHubInbound
     }
 }
 ```
-2) ثبت در Kernel: `app/Http/Kernel.php`
+2) ثبت در Kernel:
 ```php
 protected $routeMiddleware = [
-    // ...
     'telegram.hub' => \App\Http\Middleware\TelegramHubInbound::class,
 ];
 ```
@@ -218,98 +296,59 @@ protected $routeMiddleware = [
 TELEGRAM_HUB_ROUTE_MIDDLEWARE=api,telegram.hub
 ```
 
-> می‌توانید به‌جای میدلور، کنترلر اختصاصی هم بسازید و وبهوک را روی مسیر خودتان ست کنید.
+> جایگزین: می‌توانید روت/کنترلر اختصاصی خودتان را بسازید و وبهوک را روی مسیر خودتان ست کنید.
 
 ---
 
-## ✉️ ارسال پیام‌ها (Facade / Service)
+## ✉️ ارسال پیام‌ها (همه انواع رایج)
 
-### Facade
+### سرویس مرکزی
 ```php
-use Amirkateb\TelegramHub\Facades\TelegramHub as TH;
-
-TH::sendMessage(['chat_id' => 123456789, 'text' => 'سلام دنیا']);
+$hub = app('telegram.hub');
+$hub->sendMessage(['chat_id' => 123456789, 'text' => 'سلام دنیا']);
 ```
 
-### انتخاب بات (سه روش)
-- از config:
+### انتخاب بات (multi-bot)
 ```php
-$token = config('telegram_hub.bots.sales');
-TH::sendMessage(['chat_id' => 123456789, 'text' => 'سلام از بات فروش'], $token);
-```
-- توکن لحظه‌ای (مثلاً از فرم یا DB):
-```php
-$token = '123456789:ABC_DEF_987'; // توکن مستقیم
-TH::sendPhoto(['chat_id' => 123456789, 'photo' => 'https://placehold.co/600x400'], $token);
-```
-- از جدول `telegram_bots`:
-```php
-$bot = DB::table('telegram_bots')->where('key','sales')->first();
-TH::sendMessage(['chat_id'=>123456789,'text'=>'سلام از '.$bot->name], $bot->token);
+$token = config('telegram_hub.bots.sales'); // یا از DB بگیرید
+app('telegram.hub')->sendMessage(['chat_id'=>123456789, 'text'=>'از بات فروش'], $token);
 ```
 
----
-
-## 🖼️ ارسال مدیا از دیسک (Multipart)
-
+### آپلود از دیسک (multipart)
 ```php
 use Amirkateb\TelegramHub\Support\InputFile;
-use Amirkateb\TelegramHub\Facades\TelegramHub as TH;
 
-// عکس از مسیر فایل
-TH::sendPhoto([
+app('telegram.hub')->sendPhoto([
   'chat_id' => 123456789,
-  'photo'   => InputFile::path(storage_path('app/public/pic.jpg'), 'pic.jpg', 'image/jpeg'),
-  'caption' => 'از دیسک'
+  'photo' => InputFile::path(storage_path('app/public/pic.jpg'), 'pic.jpg', 'image/jpeg'),
+  'caption' => 'ارسال از دیسک'
 ]);
+```
 
-// سند با stream
-$fp = fopen(storage_path('app/private/report.pdf'), 'r');
-TH::sendDocument([
-  'chat_id'  => 123456789,
-  'document' => InputFile::stream($fp, 'report.pdf', 'application/pdf')
-]);
+### آلبوم چندتایی
+```php
+use Amirkateb\TelegramHub\Support\InputFile;
 
-// آلبوم چندتایی
 $media = [
   ['type'=>'photo','media'=>InputFile::path(storage_path('app/p1.jpg'),'p1.jpg','image/jpeg'),'caption'=>'1'],
   ['type'=>'photo','media'=>InputFile::path(storage_path('app/p2.jpg'),'p2.jpg','image/jpeg'),'caption'=>'2'],
 ];
-TH::sendMediaGroup(['chat_id'=>123456789,'media'=>$media]);
-```
 
----
-
-## 🎛 کیبوردها
-
-```php
-use Amirkateb\TelegramHub\Support\Keyboard;
-use Amirkateb\TelegramHub\Facades\TelegramHub as TH;
-
-$inline = Keyboard::inline([
-  [Keyboard::inlineButton('🌐 سایت', ['url' => 'https://example.com'])],
-  [Keyboard::inlineButton('✅ تایید', ['callback_data' => 'CONFIRM'])]
-]);
-
-TH::sendMessage([
+app('telegram.hub')->sendMediaGroup([
   'chat_id' => 123456789,
-  'text' => 'یکی را انتخاب کنید:',
-  'reply_markup' => json_encode($inline, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+  'media' => $media
 ]);
 ```
 
----
-
-## ✏️ ویرایش و حذف پیام
-
+### ویرایش و حذف
 ```php
-TH::editMessageText([
+app('telegram.hub')->editMessageText([
   'chat_id' => 123456789,
   'message_id' => 42,
   'text' => 'ویرایش شد ✅'
 ]);
 
-TH::deleteMessage([
+app('telegram.hub')->deleteMessage([
   'chat_id' => 123456789,
   'message_id' => 42
 ]);
@@ -317,45 +356,46 @@ TH::deleteMessage([
 
 ---
 
-## 🧰 Artisan Commands
+## 🧰 سرویس‌های تفکیک‌شده (Apis)
+```php
+use Amirkateb\TelegramHub\Apis\MessageApi;
+use Amirkateb\TelegramHub\Apis\MediaApi;
+use Amirkateb\TelegramHub\Apis\ChatAdminApi;
 
-```bash
-# ارسال تست ساده
-php artisan telegram-hub:send:test --chat=123456789 --text="سلام از تست"
-
-# هر متد Bot API به‌صورت عمومی
-php artisan telegram-hub:send --method=sendMessage --kv=chat_id=123456789 --kv=text="Hello"
-php artisan telegram-hub:send --method=sendPhoto --data='{"chat_id":123456789,"photo":"https://...","caption":"cap"}'
+public function send(MessageApi $msg, MediaApi $media, ChatAdminApi $admin)
+{
+    $msg->sendMessage(['chat_id'=>123,'text'=>'hi']);
+    $media->sendPhoto(['chat_id'=>123,'photo'=>'https://placehold.co/400']);
+    $admin->pinChatMessage(['chat_id'=>123,'message_id'=>10]);
+}
 ```
 
 ---
 
-## 🛡️ نکات امنیتی و عملیاتی
-
-- `secret_token` را حتماً ست و در وبهوک چک کن
-- HTTPS الزامی
-- در صورت ترافیک بالا، ارسال‌ها را داخل **Queue** انجام بده
-- برای جلوگیری از سوءاستفاده، روی مسیرهای مدیریتی میدلور Auth/API Key بگذار
-- از `telegram_logs` برای عیب‌یابی/مانیتور استفاده کن
+## 🔍 لاگ‌ها
+تمام درخواست‌های خروجی و ورودی وبهوک با payload/response در `telegram_logs` ذخیره می‌شود.
 
 ---
 
-## 🧪 عیب‌یابی
-
-- وبهوک کار نمی‌کند: آدرس صحیح، HTTPS، `secret_token` و لاگ‌های وب‌سرور را بررسی کنید
-- 429 Too Many Requests: فاصله بین ارسال‌ها یا صف‌بندی با backoff
-- فایل ارسال نمی‌شود: دسترسی فایل/مسیر صحیح و نوع MIME را بررسی کنید
-
----
-
-## 👤 سازنده
-
-- نام: **Amir Kateb**
-- ایمیل: **amveks43@gmail.com**
-- گیت‌هاب: **https://github.com/amirkateb**
+## 🛠️ عیب‌یابی و نکات عملیاتی
+- وبهوک کار نمی‌کند: HTTPS، آدرس، `secret_token`، لاگ وب‌سرور و `telegram_logs` را بررسی کنید.
+- خطای 429: ارسال‌ها را صف‌بندی کنید و backoff در نظر بگیرید.
+- فایل ارسال نمی‌شود: دسترسی فایل، MIME-type و اندازه را بررسی کنید.
+- چند‌بات: مطمئن شوید توکن صحیح را به‌عنوان پارامتر دوم متدها می‌دهید یا در DB/config درست ست شده.
 
 ---
 
-## 📄 مجوز
+## 🧭 نقشه راه پیشنهادی (Optional)
+- Router پیام‌ها (match روی /start، regex و callback_data)
+- Session/Context (Redis/DB) برای جریان‌های چندمرحله‌ای
+- Notification Channel لاراول
+- Dashboard ساده برای مشاهده‌ی لاگ‌ها و مدیریت بات‌ها
+- کش `file_id` برای ارسال مجدد بدون آپلود
+
+---
+
+## 👤 پشتیبانی، مجوز
+- ایمیل: amveks43@gmail.com
+- گیت‌هاب: https://github.com/amirkateb
 
 MIT License
