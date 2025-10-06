@@ -18,9 +18,5 @@ return [
         'base_url' => env('TELEGRAM_WEBHOOK_BASE_URL'),
         'secret_token' => env('TELEGRAM_WEBHOOK_SECRET'),
     ],
-    'routes' => [
-        'prefix' => env('TELEGRAM_HUB_ROUTE_PREFIX', 'telegram-hub'),
-        'middleware' => explode(',', env('TELEGRAM_HUB_ROUTE_MIDDLEWARE', 'api')),
-    ],
     'log_channel' => env('TELEGRAM_HUB_LOG_CHANNEL', 'stack'),
 ];
