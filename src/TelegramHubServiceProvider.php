@@ -3,7 +3,6 @@
 namespace Amirkateb\TelegramHub;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubSetWebhook;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubDeleteWebhook;
 use Amirkateb\TelegramHub\Console\Commands\TelegramHubWebhookInfo;
+use Amirkateb\TelegramHub\Console\Commands\TelegramHubSendTest;
 use Amirkateb\TelegramHub\Apis\MessageApi;
 use Amirkateb\TelegramHub\Apis\MediaApi;
 use Amirkateb\TelegramHub\Apis\ChatAdminApi;
@@ -25,17 +25,9 @@ class TelegramHubServiceProvider extends ServiceProvider
             return new TelegramHub($app['config']);
         });
 
-        $this->app->singleton(MessageApi::class, function ($app) {
-            return new MessageApi($app->make('telegram.hub'));
-        });
-
-        $this->app->singleton(MediaApi::class, function ($app) {
-            return new MediaApi($app->make('telegram.hub'));
-        });
-
-        $this->app->singleton(ChatAdminApi::class, function ($app) {
-            return new ChatAdminApi($app->make('telegram.hub'));
-        });
+        $this->app->singleton(MessageApi::class, fn($app) => new MessageApi($app->make('telegram.hub')));
+        $this->app->singleton(MediaApi::class, fn($app) => new MediaApi($app->make('telegram.hub')));
+        $this->app->singleton(ChatAdminApi::class, fn($app) => new ChatAdminApi($app->make('telegram.hub')));
     }
 
     public function boot()
@@ -48,13 +40,12 @@ class TelegramHubServiceProvider extends ServiceProvider
             __DIR__ . '/../database/migrations/' => database_path('migrations'),
         ], 'migrations');
 
-        $this->loadRoutesFrom(__DIR__ . '/../routes/telegram_hub.php');
-
         if ($this->app->runningInConsole()) {
             $this->commands([
                 TelegramHubSetWebhook::class,
                 TelegramHubDeleteWebhook::class,
                 TelegramHubWebhookInfo::class,
+                TelegramHubSendTest::class,
             ]);
         }
     }
@@ -71,9 +62,7 @@ class TelegramHub
 
     protected function token(?string $token = null): string
     {
-        if ($token) {
-            return $token;
-        }
+        if ($token) return $token;
         $bots = (array) $this->config->get('telegram_hub.bots', []);
         $defaultKey = (string) $this->config->get('telegram_hub.default_bot', 'default');
         return (string) ($bots[$defaultKey] ?? '');
@@ -86,14 +75,10 @@ class TelegramHub
             'http' => $this->config->get('telegram_hub.proxy.http'),
             'https' => $this->config->get('telegram_hub.proxy.https'),
         ]) : null;
-
-        $timeout = (int) $this->config->get('telegram_hub.request.timeout', 15);
-        $connectTimeout = (int) $this->config->get('telegram_hub.request.connect_timeout', 10);
-
         return new Client([
             'base_uri' => 'https://api.telegram.org/bot' . $token . '/',
-            'timeout' => $timeout,
-            'connect_timeout' => $connectTimeout,
+            'timeout' => (int) $this->config->get('telegram_hub.request.timeout', 15),
+            'connect_timeout' => (int) $this->config->get('telegram_hub.request.connect_timeout', 10),
             'proxy' => $proxy,
         ]);
     }
@@ -103,94 +88,35 @@ class TelegramHub
         return (string) $this->config->get('telegram_hub.log_channel', 'stack');
     }
 
-    protected function resolveBotKeyByToken(?string $token): ?string
-    {
-        if (!$token) {
-            return null;
-        }
-        $bots = (array) $this->config->get('telegram_hub.bots', []);
-        foreach ($bots as $k => $t) {
-            if ((string) $t === (string) $token) {
-                return (string) $k;
-            }
-        }
-        return null;
-    }
-
     public function call(string $method, array $params = [], ?string $token = null): array
     {
         $token = $this->token($token);
         $client = $this->client($token);
         Log::channel($this->logChannel())->info('telegram_hub.request', ['method' => $method, 'params' => $params]);
 
-        $logId = null;
         try {
-            $logId = DB::table('telegram_logs')->insertGetId([
+            $res = $client->post($method, ['form_params' => $params]);
+            $json = json_decode((string) $res->getBody(), true) ?: [];
+            Log::channel($this->logChannel())->info('telegram_hub.response', ['method' => $method, 'body' => $json]);
+            DB::table('telegram_logs')->insert([
                 'direction' => 'outbound',
-                'bot_key' => $this->resolveBotKeyByToken($token),
+                'bot_key' => null,
                 'bot_id' => null,
-                'chat_id' => isset($params['chat_id']) ? (string) $params['chat_id'] : null,
-                'message_id' => isset($params['message_id']) ? (string) $params['message_id'] : null,
+                'chat_id' => $params['chat_id'] ?? null,
+                'message_id' => $json['result']['message_id'] ?? null,
                 'method' => $method,
-                'status_code' => null,
-                'ok' => false,
-                'error_code' => null,
-                'error_description' => null,
+                'status_code' => $res->getStatusCode(),
+                'ok' => $json['ok'] ?? false,
+                'error_code' => $json['error_code'] ?? null,
+                'error_description' => $json['description'] ?? null,
                 'payload' => json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'response' => null,
+                'response' => json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Throwable $e) {
-        }
-
-        try {
-            $res = $client->post($method, ['form_params' => $params]);
-            $status = $res->getStatusCode();
-            $body = (string) $res->getBody();
-            Log::channel($this->logChannel())->info('telegram_hub.response', ['method' => $method, 'status' => $status, 'body' => $body]);
-            $json = json_decode($body, true) ?: [];
-            $ok = isset($json['ok']) ? (bool) $json['ok'] : ($status >= 200 && $status < 300);
-            $errorCode = isset($json['error_code']) ? (int) $json['error_code'] : null;
-            $desc = isset($json['description']) ? (string) $json['description'] : null;
-            $respChatId = null;
-            $respMessageId = null;
-            if (isset($json['result']['chat']['id'])) {
-                $respChatId = (string) $json['result']['chat']['id'];
-            }
-            if (isset($json['result']['message_id'])) {
-                $respMessageId = (string) $json['result']['message_id'];
-            }
-            if ($logId) {
-                try {
-                    DB::table('telegram_logs')->where('id', $logId)->update([
-                        'status_code' => $status,
-                        'ok' => $ok,
-                        'error_code' => $errorCode,
-                        'error_description' => $desc,
-                        'chat_id' => $respChatId ?: DB::raw('chat_id'),
-                        'message_id' => $respMessageId ?: DB::raw('message_id'),
-                        'response' => json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                        'updated_at' => now(),
-                    ]);
-                } catch (\Throwable $e) {
-                }
-            }
             return $json;
         } catch (\Throwable $e) {
-            Log::channel($this->logChannel())->error('telegram_hub.exception', ['method' => $method, 'message' => $e->getMessage()]);
-            if ($logId) {
-                try {
-                    DB::table('telegram_logs')->where('id', $logId)->update([
-                        'status_code' => method_exists($e, 'getCode') ? (int) $e->getCode() : null,
-                        'ok' => false,
-                        'error_code' => method_exists($e, 'getCode') ? (int) $e->getCode() : null,
-                        'error_description' => $e->getMessage(),
-                        'updated_at' => now(),
-                    ]);
-                } catch (\Throwable $e2) {
-                }
-            }
+            Log::channel($this->logChannel())->error('telegram_hub.exception', ['method' => $method, 'error' => $e->getMessage()]);
             return ['ok' => false, 'description' => $e->getMessage()];
         }
     }
