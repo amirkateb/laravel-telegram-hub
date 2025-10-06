@@ -10,17 +10,19 @@
   },
   "autoload": {
     "psr-4": {
-      "Amirkateb\\\\TelegramHub\\\\": "src/"
+      "Amirkateb\\TelegramHub\\": "src/"
     }
   },
   "extra": {
     "laravel": {
       "providers": [
-        "Amirkateb\\\\TelegramHub\\\\TelegramHubServiceProvider"
+        "Amirkateb\\TelegramHub\\TelegramHubServiceProvider"
       ],
       "aliases": {
-        "TelegramHub": "Amirkateb\\\\TelegramHub\\\\Facades\\\\TelegramHub"
+        "TelegramHub": "Amirkateb\\TelegramHub\\Facades\\TelegramHub"
       }
     }
-  }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
 }
