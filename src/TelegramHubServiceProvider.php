@@ -15,6 +15,7 @@ use Amirkateb\TelegramHub\Console\Commands\TelegramHubSend;
 use Amirkateb\TelegramHub\Apis\MessageApi;
 use Amirkateb\TelegramHub\Apis\MediaApi;
 use Amirkateb\TelegramHub\Apis\ChatAdminApi;
+use Amirkateb\TelegramHub\Support\Http;
 
 class TelegramHubServiceProvider extends ServiceProvider
 {
@@ -86,12 +87,14 @@ class TelegramHub
     {
         $token = $this->token($token);
         $client = $this->client($token);
-        Log::channel($this->logChannel())->info('telegram_hub.request', ['method' => $method, 'params' => $params]);
+        $options = Http::buildOptions($params);
+        Log::channel($this->logChannel())->info('telegram_hub.request', ['method' => $method]);
 
         try {
-            $res = $client->post($method, ['form_params' => $params]);
+            $res = $client->post($method, $options);
             $json = json_decode((string) $res->getBody(), true) ?: [];
             Log::channel($this->logChannel())->info('telegram_hub.response', ['method' => $method, 'body' => $json]);
+
             try {
                 DB::table('telegram_logs')->insert([
                     'direction' => 'outbound',
@@ -110,6 +113,7 @@ class TelegramHub
                     'updated_at' => now(),
                 ]);
             } catch (\Throwable $e) {}
+
             return $json;
         } catch (\Throwable $e) {
             Log::channel($this->logChannel())->error('telegram_hub.exception', ['method' => $method, 'error' => $e->getMessage()]);
@@ -124,9 +128,9 @@ class TelegramHub
     public function sendAudio(array $params, ?string $token = null): array { return $this->call('sendAudio', $params, $token); }
     public function sendVoice(array $params, ?string $token = null): array { return $this->call('sendVoice', $params, $token); }
     public function sendAnimation(array $params, ?string $token = null): array { return $this->call('sendAnimation', $params, $token); }
-    public function sendLocation(array $params, ?string $token = null): array { return $this->call('sendLocation', $params, $token); }
-    public function sendVenue(array $params, ?string $token = null): array { return $this->call('sendVenue', $params, $token); }
-    public function sendContact(array $params, ?string $token = null): array { return $this->call('sendContact', $params, $token); }
+    public function sendVideoNote(array $params, ?string $token = null): array { return $this->call('sendVideoNote', $params, $token); }
+    public function sendMediaGroup(array $params, ?string $token = null): array { return $this->call('sendMediaGroup', $params, $token); }
+    public function editMessageMedia(array $params, ?string $token = null): array { return $this->call('editMessageMedia', $params, $token); }
     public function editMessageText(array $params, ?string $token = null): array { return $this->call('editMessageText', $params, $token); }
     public function editMessageCaption(array $params, ?string $token = null): array { return $this->call('editMessageCaption', $params, $token); }
     public function editMessageReplyMarkup(array $params, ?string $token = null): array { return $this->call('editMessageReplyMarkup', $params, $token); }
