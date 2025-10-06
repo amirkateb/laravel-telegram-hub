@@ -2,10 +2,11 @@
 
 namespace Amirkateb\TelegramHub;
 
-use GuzzleHttp\Client;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 class TelegramHubServiceProvider extends ServiceProvider
 {
@@ -23,6 +24,12 @@ class TelegramHubServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../config/telegram_hub.php' => config_path('telegram_hub.php'),
         ], 'config');
+
+        $this->publishes([
+            __DIR__ . '/../database/migrations/' => database_path('migrations'),
+        ], 'migrations');
+
+        $this->loadRoutesFrom(__DIR__ . '/../routes/telegram_hub.php');
     }
 }
 
@@ -96,14 +103,54 @@ class TelegramHub
         return $this->call('sendDocument', $params, $token);
     }
 
+    public function sendVideo(array $params, ?string $token = null): array
+    {
+        return $this->call('sendVideo', $params, $token);
+    }
+
+    public function sendAudio(array $params, ?string $token = null): array
+    {
+        return $this->call('sendAudio', $params, $token);
+    }
+
+    public function sendVoice(array $params, ?string $token = null): array
+    {
+        return $this->call('sendVoice', $params, $token);
+    }
+
+    public function sendAnimation(array $params, ?string $token = null): array
+    {
+        return $this->call('sendAnimation', $params, $token);
+    }
+
     public function sendLocation(array $params, ?string $token = null): array
     {
         return $this->call('sendLocation', $params, $token);
     }
 
+    public function sendVenue(array $params, ?string $token = null): array
+    {
+        return $this->call('sendVenue', $params, $token);
+    }
+
+    public function sendContact(array $params, ?string $token = null): array
+    {
+        return $this->call('sendContact', $params, $token);
+    }
+
     public function editMessageText(array $params, ?string $token = null): array
     {
         return $this->call('editMessageText', $params, $token);
+    }
+
+    public function editMessageCaption(array $params, ?string $token = null): array
+    {
+        return $this->call('editMessageCaption', $params, $token);
+    }
+
+    public function editMessageReplyMarkup(array $params, ?string $token = null): array
+    {
+        return $this->call('editMessageReplyMarkup', $params, $token);
     }
 
     public function deleteMessage(array $params, ?string $token = null): array
@@ -125,6 +172,11 @@ class TelegramHub
             'allowed_updates' => [],
         ], $options);
         return $this->call('setWebhook', $payload, $token);
+    }
+
+    public function deleteWebhook(array $options = [], ?string $token = null): array
+    {
+        return $this->call('deleteWebhook', $options, $token);
     }
 
     public function getWebhookInfo(?string $token = null): array
