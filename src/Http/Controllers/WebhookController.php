@@ -10,18 +10,20 @@ class WebhookController extends Controller
 {
     public function handle(Request $request, string $bot)
     {
-        $expected = config('telegram_hub.webhook.secret_token');
+        $db = DB::table('telegram_bots')->where('key', $bot)->first();
+        $expected = $db && $db->secret_token ? $db->secret_token : config('telegram_hub.webhook.secret_token');
         $provided = $request->header('X-Telegram-Bot-Api-Secret-Token');
         if ($expected && $provided !== $expected) {
             return response()->json(['ok' => false], 403);
         }
 
         $payload = $request->all();
+
         try {
             DB::table('telegram_logs')->insert([
                 'direction' => 'inbound',
                 'bot_key' => $bot,
-                'bot_id' => null,
+                'bot_id' => $db->id ?? null,
                 'chat_id' => isset($payload['message']['chat']['id']) ? (string) $payload['message']['chat']['id'] : null,
                 'message_id' => isset($payload['message']['message_id']) ? (string) $payload['message']['message_id'] : null,
                 'method' => 'webhook',
@@ -37,7 +39,11 @@ class WebhookController extends Controller
         } catch (\Throwable $e) {
         }
 
-        $token = config('telegram_hub.bots.' . $bot);
+        $token = $db->token ?? config('telegram_hub.bots.' . $bot);
+
+        if (!$token) {
+            return response()->json(['ok' => false, 'description' => 'Bot token not found'], 422);
+        }
 
         if (isset($payload['callback_query']['id'])) {
             app('telegram.hub')->answerCallbackQuery([
@@ -60,18 +66,21 @@ class WebhookController extends Controller
 
     public function handleDefault(Request $request)
     {
-        $expected = config('telegram_hub.webhook.secret_token');
+        $defaultKey = (string) config('telegram_hub.default_bot', 'default');
+        $db = DB::table('telegram_bots')->where('key', $defaultKey)->first();
+        $expected = $db && $db->secret_token ? $db->secret_token : config('telegram_hub.webhook.secret_token');
         $provided = $request->header('X-Telegram-Bot-Api-Secret-Token');
         if ($expected && $provided !== $expected) {
             return response()->json(['ok' => false], 403);
         }
 
         $payload = $request->all();
+
         try {
             DB::table('telegram_logs')->insert([
                 'direction' => 'inbound',
-                'bot_key' => null,
-                'bot_id' => null,
+                'bot_key' => $defaultKey,
+                'bot_id' => $db->id ?? null,
                 'chat_id' => isset($payload['message']['chat']['id']) ? (string) $payload['message']['chat']['id'] : null,
                 'message_id' => isset($payload['message']['message_id']) ? (string) $payload['message']['message_id'] : null,
                 'method' => 'webhook',
@@ -87,8 +96,11 @@ class WebhookController extends Controller
         } catch (\Throwable $e) {
         }
 
-        $defaultKey = (string) config('telegram_hub.default_bot', 'default');
-        $token = config('telegram_hub.bots.' . $defaultKey);
+        $token = $db->token ?? config('telegram_hub.bots.' . $defaultKey);
+
+        if (!$token) {
+            return response()->json(['ok' => false, 'description' => 'Bot token not found'], 422);
+        }
 
         if (isset($payload['callback_query']['id'])) {
             app('telegram.hub')->answerCallbackQuery([
