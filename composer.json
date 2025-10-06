@@ -1,0 +1,23 @@
+{
+  "name": "amirkateb/laravel-telegram-hub",
+  "description": "Laravel Telegram Hub for multi-bot messaging, webhooks, proxy, and logging.",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": "^8.2",
+    "illuminate/support": "^10.0|^11.0",
+    "guzzlehttp/guzzle": "^7.8|^7.9|^7.10"
+  },
+  "autoload": {
+    "psr-4": {
+      "Amirkateb\\\\TelegramHub\\\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Amirkateb\\\\TelegramHub\\\\TelegramHubServiceProvider"
+      ]
+    }
+  }
+}
